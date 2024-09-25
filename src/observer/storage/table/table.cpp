@@ -52,20 +52,26 @@ Table::~Table()
   LOG_INFO("Table has been closed: %s", name());
 }
 
+///////////////////////////////////////////////////////////////////////
+// 创建一个表
 RC Table::create(Db *db, int32_t table_id, const char *path, const char *name, const char *base_dir,
     span<const AttrInfoSqlNode> attributes, StorageFormat storage_format)
 {
+  // table_id < 0
   if (table_id < 0) {
     LOG_WARN("invalid table id. table_id=%d, table_name=%s", table_id, name);
     return RC::INVALID_ARGUMENT;
   }
 
+  // name == NULL
   if (common::is_blank(name)) {
     LOG_WARN("Name cannot be empty");
     return RC::INVALID_ARGUMENT;
   }
+
   LOG_INFO("Begin to create table %s:%s", base_dir, name);
 
+  // attributes == NULL
   if (attributes.size() == 0) {
     LOG_WARN("Invalid arguments. table_name=%s, attribute_count=%d", name, attributes.size());
     return RC::INVALID_ARGUMENT;
@@ -127,6 +133,34 @@ RC Table::create(Db *db, int32_t table_id, const char *path, const char *name, c
   return rc;
 }
 
+///////////////////////////////////////////////////////////////////////
+// 删除一个表
+RC Table::drop()
+{
+  // 需要删除 data + index + meta
+  // 函数 table_data_file  table_index_file  table_meta_file 可以根据表格名和根目录 (索引名)，找到对应文件名称
+
+  // 删除数据文件 data_file
+  string data_file = table_data_file(base_dir_.c_str(), table_meta_.name());
+  unlink(data_file.c_str());
+
+  // 删除索引文件 index_file
+  int indexNum = table_meta_.index_num();
+  for (int i = 0; i < indexNum; i++) {
+    auto  *index_meta = table_meta_.index(i);
+    string index_file = table_index_file(base_dir_.c_str(), table_meta_.name(), index_meta->name());
+    unlink(index_file.c_str());
+  }
+
+  // 删除元文件 meta_file
+  string meta_file = table_meta_file(base_dir_.c_str(), table_meta_.name());
+  unlink(meta_file.c_str());
+
+  return RC::SUCCESS;
+}
+
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::open(Db *db, const char *meta_file, const char *base_dir)
 {
   // 加载元数据文件
@@ -185,6 +219,8 @@ RC Table::open(Db *db, const char *meta_file, const char *base_dir)
   return rc;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::insert_record(Record &record)
 {
   RC rc = RC::SUCCESS;
@@ -210,11 +246,15 @@ RC Table::insert_record(Record &record)
   return rc;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::visit_record(const RID &rid, function<bool(Record &)> visitor)
 {
   return record_handler_->visit_record(rid, visitor);
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::get_record(const RID &rid, Record &record)
 {
   RC rc = record_handler_->get_record(rid, record);
@@ -226,6 +266,8 @@ RC Table::get_record(const RID &rid, Record &record)
   return rc;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::recover_insert_record(Record &record)
 {
   RC rc = RC::SUCCESS;
@@ -251,10 +293,16 @@ RC Table::recover_insert_record(Record &record)
   return rc;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 const char *Table::name() const { return table_meta_.name(); }
 
+///////////////////////////////////////////////////////////////////////
+//
 const TableMeta &Table::table_meta() const { return table_meta_; }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::make_record(int value_num, const Value *values, Record &record)
 {
   RC rc = RC::SUCCESS;
@@ -272,7 +320,7 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
 
   for (int i = 0; i < value_num && OB_SUCC(rc); i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
-    const Value &    value = values[i];
+    const Value     &value = values[i];
     if (field->type() != value.attr_type()) {
       Value real_value;
       rc = Value::cast_to(value, field->type(), real_value);
@@ -296,6 +344,8 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
   return RC::SUCCESS;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::set_value_to_record(char *record_data, const Value &value, const FieldMeta *field)
 {
   size_t       copy_len = field->len();
@@ -309,6 +359,8 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
   return RC::SUCCESS;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::init_record_handler(const char *base_dir)
 {
   string data_file = table_data_file(base_dir, table_meta_.name());
@@ -335,6 +387,8 @@ RC Table::init_record_handler(const char *base_dir)
   return rc;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::get_record_scanner(RecordFileScanner &scanner, Trx *trx, ReadWriteMode mode)
 {
   RC rc = scanner.open_scan(this, *data_buffer_pool_, trx, db_->log_handler(), mode, nullptr);
@@ -344,6 +398,8 @@ RC Table::get_record_scanner(RecordFileScanner &scanner, Trx *trx, ReadWriteMode
   return rc;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode mode)
 {
   RC rc = scanner.open_scan_chunk(this, *data_buffer_pool_, db_->log_handler(), mode);
@@ -353,6 +409,8 @@ RC Table::get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode m
   return rc;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name)
 {
   if (common::is_blank(index_name) || nullptr == field_meta) {
@@ -451,6 +509,8 @@ RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_
   return rc;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::delete_record(const RID &rid)
 {
   RC     rc = RC::SUCCESS;
@@ -463,6 +523,8 @@ RC Table::delete_record(const RID &rid)
   return delete_record(record);
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::delete_record(const Record &record)
 {
   RC rc = RC::SUCCESS;
@@ -476,6 +538,8 @@ RC Table::delete_record(const Record &record)
   return rc;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::insert_entry_of_indexes(const char *record, const RID &rid)
 {
   RC rc = RC::SUCCESS;
@@ -488,6 +552,8 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid)
   return rc;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::delete_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists)
 {
   RC rc = RC::SUCCESS;
@@ -502,6 +568,8 @@ RC Table::delete_entry_of_indexes(const char *record, const RID &rid, bool error
   return rc;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 Index *Table::find_index(const char *index_name) const
 {
   for (Index *index : indexes_) {
@@ -511,6 +579,9 @@ Index *Table::find_index(const char *index_name) const
   }
   return nullptr;
 }
+
+///////////////////////////////////////////////////////////////////////
+//
 Index *Table::find_index_by_field(const char *field_name) const
 {
   const TableMeta &table_meta = this->table_meta();
@@ -521,6 +592,8 @@ Index *Table::find_index_by_field(const char *field_name) const
   return nullptr;
 }
 
+///////////////////////////////////////////////////////////////////////
+//
 RC Table::sync()
 {
   RC rc = RC::SUCCESS;

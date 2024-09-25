@@ -1,16 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
-miniob is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
-         http://license.coscl.org.cn/MulanPSL2
-THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-See the Mulan PSL v2 for more details. */
-
-//
-// Created by Meiyi & Longda & Wangyunlai on 2021/5/12.
-//
+// line 57
 
 #pragma once
 
@@ -67,9 +55,20 @@ public:
       const StorageFormat storage_format = StorageFormat::ROW_FORMAT);
 
   /**
+   * @brief 根据表名删除表
+   */
+  RC drop_table(const char *table_name);
+
+  /**
+   * @brief 根据表ID删除表
+   */
+  RC drop_table(int32_t table_id);
+
+  /**
    * @brief 根据表名查找表
    */
   Table *find_table(const char *table_name) const;
+
   /**
    * @brief 根据表ID查找表
    */

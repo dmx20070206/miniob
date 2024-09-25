@@ -25,6 +25,7 @@ See the Mulan PSL v2 for more details. */
 #include "event/sql_event.h"
 #include "session/session.h"
 #include "sql/stmt/stmt.h"
+#include "event/sql_debug.h"
 
 using namespace common;
 
